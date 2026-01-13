@@ -6,6 +6,7 @@ import { MetricCard } from '@/components/MetricCard';
 import { HoldingsTable } from '@/components/HoldingsTable';
 import { AllocationChart } from '@/components/AllocationChart';
 import { TransactionForm } from '@/components/TransactionForm';
+import { SyncButton } from '@/components/SyncButton';
 
 // Demo User ID for this proof of concept
 const DATA_USER_ID = 'demo-user';
@@ -51,9 +52,12 @@ export default function DashboardPage() {
 
     return (
         <div className="min-h-screen bg-slate-900 text-slate-100 p-8 pb-32">
-            <header className="max-w-7xl mx-auto mb-12">
-                <h1 className="text-3xl font-bold tracking-tight">Portfolio Tracker</h1>
-                <p className="text-slate-400 mt-2">Headless Investment Dashboard</p>
+            <header className="max-w-7xl mx-auto mb-12 flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Portfolio Tracker</h1>
+                    <p className="text-slate-400 mt-2">Headless Investment Dashboard</p>
+                </div>
+                <SyncButton />
             </header>
 
             <main className="max-w-7xl mx-auto space-y-8">

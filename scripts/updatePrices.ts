@@ -1,23 +1,26 @@
-const admin = require('firebase-admin');
-const { getFirestore } = require('firebase-admin/firestore');
+require('dotenv').config({ path: '.env.local' });
+const { initializeApp } = require('firebase/app');
+const { getFirestore, doc, setDoc } = require('firebase/firestore');
 
-// Initialize Firebase Admin
-// Note: This requires a service account key file named 'service-account.json' in the project root
-// or GOOGLE_APPLICATION_CREDENTIALS env var.
-if (!admin.apps.length) {
-    try {
-        // Attempt to load from service-account.json if it exists
-        const serviceAccount = require('../service-account.json');
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-    } catch (e) {
-        console.warn("Warning: 'service-account.json' not found or invalid. Using default application credentials or mock mode.");
-        admin.initializeApp(); // Attempt default credentials (e.g. if enabled in GCP)
-    }
+// Initialize Firebase Client SDK
+// Uses environment variables from .env.local
+const firebaseConfig = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+// Check if config is present
+if (!firebaseConfig.apiKey) {
+    console.error("Error: Firebase config missing. Ensure .env.local exists and contains NEXT_PUBLIC_FIREBASE_... variables.");
+    process.exit(1);
 }
 
-const db = getFirestore();
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 async function updateCSEPrices() {
     console.log("Fetching CSE market data...");
@@ -60,10 +63,10 @@ async function updateCSEPrices() {
 
         console.log(`Received ${dataList.length} items. Processing...`);
 
-        const marketData: Record<string, any> = {};
+        const marketData = {};
         const updatedAt = new Date().toISOString();
 
-        dataList.forEach((stock: any) => {
+        dataList.forEach((stock) => {
             // Logic from user: 
             // stock.price is current price? If 0, fallback to closingPrice.
             const finalPrice = (stock.price && stock.price > 0) ? stock.price : stock.closingPrice;
@@ -76,15 +79,17 @@ async function updateCSEPrices() {
         // Add metadata
         marketData['updatedAt'] = updatedAt;
 
-        // Write to Firestore
+        // Write to Firestore using Client SDK
         // Document: market_data/latest
-        await db.collection('market_data').doc('latest').set(marketData);
+        await setDoc(doc(db, 'market_data', 'latest'), marketData);
 
         console.log("Successfully updated market_data/latest.");
         console.log("Sample Data:", Object.entries(marketData).slice(0, 5));
+        process.exit(0);
 
     } catch (error) {
         console.error("Critical Error updating prices:", error);
+        process.exit(1);
     }
 }
 
