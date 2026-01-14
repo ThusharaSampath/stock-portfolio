@@ -184,6 +184,47 @@ func main() {
         c.JSON(http.StatusOK, symbols)
     })
 
+    r.GET("/portfolio/transactions", func(c *gin.Context) {
+        uid := c.Query("uid")
+        if uid == "" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Missing uid parameter"})
+            return
+        }
+
+        ctx := context.Background()
+        iter := client.Collection("users").Doc(uid).Collection("transactions").Documents(ctx)
+        var transactions []Transaction
+        
+        for {
+            doc, err := iter.Next()
+            if err == iterator.Done {
+                break
+            }
+            if err != nil {
+                log.Printf("Error fetching transactions: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
+                return
+            }
+
+            var tx Transaction
+            if err := doc.DataTo(&tx); err != nil {
+                log.Printf("Error mapping tx: %v", err)
+                continue
+            }
+            if tx.ID == "" {
+                tx.ID = doc.Ref.ID
+            }
+            transactions = append(transactions, tx)
+        }
+
+        // Sort by Date Descending
+        sort.Slice(transactions, func(i, j int) bool {
+            return transactions[i].Date > transactions[j].Date
+        })
+
+        c.JSON(http.StatusOK, transactions)
+    })
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

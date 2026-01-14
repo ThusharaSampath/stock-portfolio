@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Wallet, PieChart, TrendingUp, Settings } from 'lucide-react';
+import { LayoutDashboard, Wallet, PieChart, TrendingUp, Settings, ArrowRightLeft } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const NAV_ITEMS = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Holdings', href: '/holdings', icon: Wallet },
+    { name: 'Transactions', href: '/transactions', icon: ArrowRightLeft },
 ];
 
 export function Sidebar() {
