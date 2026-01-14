@@ -11,17 +11,29 @@ const DATA_USER_ID = 'demo-user';
 
 export default function TransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [cashOnHand, setCashOnHand] = useState<number>(0);
     const [loading, setLoading] = useState(true);
 
     const fetchData = async () => {
         try {
             setLoading(true);
             const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-            const res = await fetch(`${backendUrl}/portfolio/transactions?uid=${DATA_USER_ID}`);
-            if (res.ok) {
-                const json = await res.json();
+
+            // Parallel fetch for transactions and summary (to get buying power)
+            const [txRes, summaryRes] = await Promise.all([
+                fetch(`${backendUrl}/portfolio/transactions?uid=${DATA_USER_ID}`),
+                fetch(`${backendUrl}/portfolio/summary?uid=${DATA_USER_ID}`)
+            ]);
+
+            if (txRes.ok) {
+                const json = await txRes.json();
                 setTransactions(json);
             }
+            if (summaryRes.ok) {
+                const json = await summaryRes.json();
+                setCashOnHand(json.cashOnHand);
+            }
+
         } catch (error) {
             console.error(error);
         } finally {
@@ -54,7 +66,7 @@ export default function TransactionsPage() {
                 </div>
             </main>
 
-            <TransactionForm uid={DATA_USER_ID} onSuccess={fetchData} />
+            <TransactionForm uid={DATA_USER_ID} onSuccess={fetchData} buyingPower={cashOnHand} />
         </div>
     );
 }

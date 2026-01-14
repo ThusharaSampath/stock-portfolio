@@ -11,9 +11,10 @@ import { SymbolDropdown } from './SymbolDropdown';
 interface TransactionFormProps {
     uid: string; // User ID to add transaction for
     onSuccess: () => void;
+    buyingPower?: number;
 }
 
-export function TransactionForm({ uid, onSuccess }: TransactionFormProps) {
+export function TransactionForm({ uid, onSuccess, buyingPower }: TransactionFormProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -35,18 +36,19 @@ export function TransactionForm({ uid, onSuccess }: TransactionFormProps) {
         try {
             // Calculate netAmount
             // BUY: -(price * qty + fee)
-            // SELL: (price * qty - fee) [Note: user spec said sell qty is negative in schema? No, "negative for sells" in qty field example "qty: 1000 (negative for sells)". 
-            // But in form, user usually enters positive qty. We should convert logic here to match spec.
-
-            // Wait, spec: "qty: 1000 (negative for sells)". 
-            // netAmount: Calculated cash flow impact.
 
             let finalQty = qty;
             let netAmount = 0;
 
             if (type === 'BUY') {
                 finalQty = Math.abs(qty); // Ensure positive
-                netAmount = -((finalQty * price) + fee);
+                const totalCost = (finalQty * price) + fee;
+
+                if (buyingPower !== undefined && totalCost > buyingPower) {
+                    throw new Error(`Insufficient funds. Cost: ${totalCost.toLocaleString()}, Available: ${buyingPower.toLocaleString()}`);
+                }
+
+                netAmount = -totalCost;
             } else if (type === 'SELL') {
                 finalQty = -Math.abs(qty); // Ensure negative per spec
                 netAmount = (Math.abs(qty) * price) - fee;

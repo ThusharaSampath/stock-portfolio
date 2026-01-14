@@ -112,7 +112,7 @@ export default function DashboardPage() {
                 </div>
             </main>
 
-            <TransactionForm uid={DATA_USER_ID} onSuccess={fetchData} />
+            <TransactionForm uid={DATA_USER_ID} onSuccess={fetchData} buyingPower={data.cashOnHand} />
         </div>
     );
 }
