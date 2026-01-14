@@ -1,9 +1,8 @@
-"use client";
-
 import { useEffect, useState } from 'react';
 import { MetricCard } from '@/components/MetricCard';
 import { AllocationChart } from '@/components/AllocationChart';
 import { HistoryChart } from '@/components/HistoryChart';
+import { GainChart } from '@/components/GainChart';
 import { Sidebar } from '@/components/Sidebar';
 import { TransactionForm } from '@/components/TransactionForm';
 import { PortfolioSummary } from '@/lib/types';
