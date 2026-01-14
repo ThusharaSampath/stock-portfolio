@@ -38,7 +38,7 @@ export default function HoldingsPage() {
         <div className="flex min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-500/30">
             <Sidebar />
 
-            <main className="ml-64 flex-1 p-8 pb-32">
+            <main className="flex-1 p-4 md:p-8 pb-32 md:ml-64">
                 <header className="mb-12">
                     <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">
                         Holdings

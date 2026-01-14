@@ -57,8 +57,8 @@ export default function DashboardPage() {
         <div className="flex min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-500/30">
             <Sidebar />
 
-            <main className="ml-64 flex-1 p-8 pb-32">
-                <header className="mb-10 flex justify-between items-end">
+            <main className="flex-1 p-4 md:p-8 pb-32 md:ml-64">
+                <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                     <div>
                         <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent mb-2">
                             Dashboard
