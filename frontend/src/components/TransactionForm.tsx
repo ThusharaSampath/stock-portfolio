@@ -6,6 +6,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { TransactionType } from '@/lib/types';
 import { clsx } from 'clsx';
 import { X } from 'lucide-react';
+import { SymbolDropdown } from './SymbolDropdown';
 
 interface TransactionFormProps {
     uid: string; // User ID to add transaction for
@@ -96,11 +97,13 @@ export function TransactionForm({ uid, onSuccess }: TransactionFormProps) {
         }
     };
 
+    console.log("TransactionForm rendered");
     return (
         <>
             <button
                 onClick={() => setIsOpen(true)}
-                className="fixed bottom-8 right-8 bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-full shadow-lg transition-all z-40"
+                className="fixed bottom-8 right-8 bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-full shadow-lg transition-all z-[100] border-2 border-white/20"
+                aria-label="Add Transaction"
             >
                 + Add Transaction
             </button>
@@ -147,15 +150,7 @@ export function TransactionForm({ uid, onSuccess }: TransactionFormProps) {
 
                             {(type === 'BUY' || type === 'SELL' || type === 'DIVIDEND') && (
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Symbol</label>
-                                    <input
-                                        type="text"
-                                        value={symbol}
-                                        onChange={(e) => setSymbol(e.target.value)}
-                                        placeholder="e.g. JKH.N0000"
-                                        className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none"
-                                        required
-                                    />
+                                    <SymbolDropdown value={symbol} onChange={setSymbol} />
                                 </div>
                             )}
 
