@@ -2,43 +2,14 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"time"
-
-	"cloud.google.com/go/firestore"
-	firebase "firebase.google.com/go"
-	"github.com/joho/godotenv"
-	"google.golang.org/api/option"
+    "os"
+    "github.com/joho/godotenv"
 )
-
-var client *firestore.Client
-
-func initFirebase() {
-	ctx := context.Background()
-	_ = godotenv.Load()
-
-	var opts []option.ClientOption
-	if jsonCreds := os.Getenv("FIREBASE_SERVICE_ACCOUNT_JSON"); jsonCreds != "" {
-		opts = append(opts, option.WithCredentialsJSON([]byte(jsonCreds)))
-	}
-
-	conf := &firebase.Config{ProjectID: os.Getenv("NEXT_PUBLIC_FIREBASE_PROJECT_ID")}
-	app, err := firebase.NewApp(ctx, conf, opts...)
-	if err != nil {
-		log.Fatalf("error initializing app: %v\n", err)
-	}
-
-	client, err = app.Firestore(ctx)
-	if err != nil {
-		log.Fatalf("error initializing firestore: %v\n", err)
-	}
-}
 
 type CSETradeSummary struct {
 	ReqTradeSummery []struct {
@@ -51,11 +22,10 @@ type CSETradeSummary struct {
 }
 
 func main() {
-	initFirebase()
-	defer client.Close()
-
+    _ = godotenv.Load()
 	log.Println("Starting CSE Scraper Task...")
-
+    
+    // 1. Scrape Data
 	url := "https://www.cse.lk/api/tradeSummary"
 	payload := map[string]interface{}{
 		"headers": map[string]interface{}{
@@ -96,8 +66,9 @@ func main() {
 		return
 	}
 
-	log.Printf("Received %d items. Updating Firestore...", len(data.ReqTradeSummery))
+	log.Printf("Received %d items. Preparing to send to backend...", len(data.ReqTradeSummery))
 
+    // 2. Prepare Market Data for Backend
 	marketData := make(map[string]interface{})
 	for _, stock := range data.ReqTradeSummery {
 		finalPrice := stock.Price
@@ -108,14 +79,42 @@ func main() {
 			marketData[stock.Symbol] = finalPrice
 		}
 	}
+    
+    backendURL := os.Getenv("NEXT_PUBLIC_BACKEND_URL")
+    if backendURL == "" {
+        backendURL = "http://localhost:8080"
+    }
 
-	marketData["updatedAt"] = time.Now().Format(time.RFC3339)
+    // 3. Call Backend: Update Market Data
+    log.Println("Calling POST /market/update...")
+    jsonMarket, _ := json.Marshal(marketData)
+    postResp, err := http.Post(fmt.Sprintf("%s/market/update", backendURL), "application/json", bytes.NewBuffer(jsonMarket))
+    if err != nil {
+        log.Fatalf("Error updating backend market data: %v", err)
+    }
+    defer postResp.Body.Close()
+    if postResp.StatusCode != http.StatusOK {
+         body, _ := io.ReadAll(postResp.Body)
+         log.Fatalf("Backend Market Update Failed: %s", string(body))
+    }
+    log.Println("Market data updated successfully.")
 
-	ctx := context.Background()
-	_, err = client.Collection("market_data").Doc("latest").Set(ctx, marketData)
-	if err != nil {
-		log.Fatalf("Error writing to Firestore: %v", err)
-	}
-
-	log.Println("Successfully updated market_data/latest.")
+    // 4. Call Backend: Trigger Snapshot
+    // Ideally loop through users, but hardcoded for demo
+    uid := "demo-user"
+    log.Printf("Calling POST /portfolio/snapshot for %s...", uid)
+    
+    snapResp, err := http.Post(fmt.Sprintf("%s/portfolio/snapshot?uid=%s", backendURL, uid), "application/json", nil)
+    if err != nil {
+        log.Fatalf("Error triggering snapshot: %v", err)
+    }
+    defer snapResp.Body.Close()
+    
+    if snapResp.StatusCode != http.StatusOK {
+         body, _ := io.ReadAll(snapResp.Body)
+         log.Fatalf("Snapshot Trigger Failed: %s", string(body))
+    }
+    
+    log.Println("Portfolio snapshot saved successfully.")
+    log.Println("Task completed.")
 }

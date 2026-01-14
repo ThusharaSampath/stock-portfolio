@@ -14,6 +14,7 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
     "sort"
+    "time"
 )
 
 var client *firestore.Client
@@ -223,6 +224,196 @@ func main() {
         })
 
         c.JSON(http.StatusOK, transactions)
+    })
+
+    // Update Market Data (Called by Task)
+    r.POST("/market/update", func(c *gin.Context) {
+        var marketData map[string]interface{}
+        if err := c.BindJSON(&marketData); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
+            return
+        }
+        
+        // Ensure updatedAt is set
+        marketData["updatedAt"] = time.Now().Format(time.RFC3339)
+
+        ctx := context.Background()
+        _, err := client.Collection("market_data").Doc("latest").Set(ctx, marketData)
+        if err != nil {
+            log.Printf("Error updating market data: %v", err)
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update market data"})
+            return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"status": "Market data updated"})
+    })
+
+    // Trigger Snapshot (Called by Task)
+    r.POST("/portfolio/snapshot", func(c *gin.Context) {
+        uid := c.Query("uid")
+        if uid == "" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Missing uid parameter"})
+            return
+        }
+
+        ctx := context.Background()
+
+        // 1. Fetch Transactions
+        iter := client.Collection("users").Doc(uid).Collection("transactions").Documents(ctx)
+        var transactions []Transaction
+        for {
+            doc, err := iter.Next()
+            if err == iterator.Done {
+                break
+            }
+            if err != nil {
+                log.Printf("Error fetching transactions: %v", err)
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
+                return
+            }
+
+            var tx Transaction
+            if err := doc.DataTo(&tx); err != nil {
+                continue
+            }
+            if tx.ID == "" {
+                tx.ID = doc.Ref.ID
+            }
+            transactions = append(transactions, tx)
+        }
+
+        // 2. Fetch Market Data
+        dsnap, err := client.Collection("market_data").Doc("latest").Get(ctx)
+        marketPrices := make(map[string]float64)
+        if err == nil {
+            data := dsnap.Data()
+            for k, v := range data {
+                if k == "updatedAt" {
+                    continue
+                }
+                switch val := v.(type) {
+                case float64:
+                    marketPrices[k] = val
+                case int64:
+                    marketPrices[k] = float64(val)
+                case int:
+                    marketPrices[k] = float64(val)
+                }
+            }
+        }
+
+        // 3. Fetch Settings
+        var baseNetInvested *float64
+        settingsSnap, err := client.Collection("users").Doc(uid).Collection("settings").Doc("general").Get(ctx)
+        if err == nil {
+            if val, err := settingsSnap.DataAt("baseBankTransfer"); err == nil {
+                 switch v := val.(type) {
+                case float64:
+                    baseNetInvested = &v
+                case int64:
+                     f := float64(v)
+                     baseNetInvested = &f
+                }
+            }
+        }
+
+        // 4. Calculate State
+        summary := CalculatePortfolioState(transactions, marketPrices, baseNetInvested)
+
+        // 5. Save Snapshot
+        snapshot := map[string]interface{}{
+            "date":              time.Now().Format(time.RFC3339),
+            "netWorth":          summary.NetWorth,
+            "netInvested":       summary.NetInvested,
+            "cashOnHand":        summary.CashOnHand,
+            "totalGain":         summary.TotalLifecycleGain,
+            "holdingsCount":     len(summary.Holdings),
+        }
+
+        _, _, err = client.Collection("users").Doc(uid).Collection("history").Add(ctx, snapshot)
+        if err != nil {
+            log.Printf("Error saving snapshot: %v", err)
+             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save snapshot"})
+             return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"status": "Snapshot saved", "data": snapshot})
+    })
+
+    // Get History for Graphs
+    r.GET("/portfolio/history", func(c *gin.Context) {
+        uid := c.Query("uid")
+        if uid == "" {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "Missing uid parameter"})
+            return
+        }
+
+        ctx := context.Background()
+        iter := client.Collection("users").Doc(uid).Collection("history").Documents(ctx)
+        var history []map[string]interface{}
+        for {
+            doc, err := iter.Next()
+            if err == iterator.Done {
+                break
+            }
+            if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch history"})
+                return
+            }
+            history = append(history, doc.Data())
+        }
+
+        // Sort by Date
+        sort.Slice(history, func(i, j int) bool {
+             d1, _ := time.Parse(time.RFC3339, history[i]["date"].(string))
+             d2, _ := time.Parse(time.RFC3339, history[j]["date"].(string))
+             return d1.Before(d2)
+        })
+
+        c.JSON(http.StatusOK, history)
+    })
+
+    // Admin: Seed History (Dummy Data)
+    r.POST("/admin/seed-history", func(c *gin.Context) {
+        uid := c.Query("uid")
+        if uid == "" {
+           uid = "demo-user"
+        }
+        
+        ctx := context.Background()
+        // clear existing (optional, but good for reset)
+        // skipping delete for simplicity, just appending
+
+        now := time.Now()
+        baseValue := 100000.0
+        baseInvested := 100000.0
+
+        for i := 30; i >= 0; i-- {
+             date := now.AddDate(0, 0, -i)
+             
+             // Simulate small daily random fluctuation
+             // In real app, use math/rand
+             fluctuation := float64(i%5) * 500
+             if i%2 == 0 {
+                 fluctuation = -fluctuation 
+             }
+             
+             snapshot := map[string]interface{}{
+                "date":              date.Format(time.RFC3339),
+                "netWorth":          baseValue + (float64(30-i)*1000) + fluctuation, // Generally going up
+                "netInvested":       baseInvested + (float64(30-i)*500), // Slowly investing more
+                "cashOnHand":        5000.0,
+                "totalGain":         (baseValue + (float64(30-i)*1000) + fluctuation) - (baseInvested + (float64(30-i)*500)), 
+                "holdingsCount":     5,
+            }
+            
+            _, _, err := client.Collection("users").Doc(uid).Collection("history").Add(ctx, snapshot)
+            if err != nil {
+                log.Println("Error seeding:", err)
+            }
+        }
+        
+        c.JSON(http.StatusOK, gin.H{"status": "Seeded 30 days of history"})
     })
 
 	port := os.Getenv("PORT")
