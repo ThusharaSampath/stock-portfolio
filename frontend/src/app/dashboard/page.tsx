@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useState } from 'react';
 import { MetricCard } from '@/components/MetricCard';
 import { AllocationChart } from '@/components/AllocationChart';
@@ -97,8 +99,8 @@ export default function Dashboard() {
 
                 {/* Charts Area */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Main Chart (History) - Spans 2 cols */}
-                    <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-xl min-h-[400px]">
+                    {/* Net Worth Chart */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-xl min-h-[400px]">
                         {loading ? (
                             <div className="animate-pulse h-full bg-slate-800/50 rounded-xl"></div>
                         ) : (
@@ -106,8 +108,17 @@ export default function Dashboard() {
                         )}
                     </div>
 
-                    {/* Side Chart (Allocation) - Spans 1 col */}
-                    <div className="lg:col-span-1 bg-slate-900/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-xl min-h-[400px] flex flex-col">
+                    {/* Total Gain Chart */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-xl min-h-[400px]">
+                        {loading ? (
+                            <div className="animate-pulse h-full bg-slate-800/50 rounded-xl"></div>
+                        ) : (
+                            <GainChart data={history} />
+                        )}
+                    </div>
+
+                    {/* Allocation Chart */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm shadow-xl min-h-[400px] flex flex-col">
                         <h3 className="text-slate-400 text-sm uppercase tracking-wider font-semibold mb-4">Asset Allocation</h3>
                         <div className="flex-1 relative">
                             {loading || !data ? (
