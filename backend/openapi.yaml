@@ -1,0 +1,262 @@
+openapi: 3.0.0
+info:
+  title: Stock Portfolio API
+  description: Backend API for the Stock Portfolio Tracker application.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local Development Server
+
+paths:
+  /portfolio/summary:
+    get:
+      summary: Get Portfolio Summary
+      description: Retrieves the current portfolio summary including net worth, holdings, and asset allocation.
+      parameters:
+        - in: query
+          name: uid
+          schema:
+            type: string
+          required: true
+          description: User ID
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioSummary'
+        '400':
+          description: Missing UID parameter
+        '500':
+          description: Server error
+
+  /market/symbols:
+    get:
+      summary: Get Market Symbols
+      description: Retrieves a list of all available stock symbols from the market data.
+      responses:
+        '200':
+          description: List of symbols
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '500':
+          description: Server error
+
+  /portfolio/transactions:
+    get:
+      summary: Get Transactions
+      description: Retrieves a list of all transactions for a user, sorted by date descending.
+      parameters:
+        - in: query
+          name: uid
+          schema:
+            type: string
+          required: true
+          description: User ID
+      responses:
+        '200':
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+        '400':
+          description: Missing UID parameter
+        '500':
+          description: Server error
+
+  /portfolio/history:
+    get:
+      summary: Get Portfolio History
+      description: Retrieves historical portfolio snapshots for visualization.
+      parameters:
+        - in: query
+          name: uid
+          schema:
+            type: string
+          required: true
+          description: User ID
+      responses:
+        '200':
+          description: History data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    date:
+                      type: string
+                      format: date-time
+                    netWorth:
+                      type: number
+                    netInvested:
+                      type: number
+                    cashOnHand:
+                      type: number
+                    totalGain:
+                      type: number
+                    holdingsCount:
+                      type: integer
+        '400':
+          description: Missing UID parameter
+        '500':
+          description: Server error
+
+  /market/update:
+    post:
+      summary: Update Market Data
+      description: Updates the latest market prices for stocks. Called by the scheduler task.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                oneOf:
+                  - type: number
+                  - type: string
+              description: Map of stock symbols to their current prices (or other metadata)
+      responses:
+        '200':
+          description: Market data updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '400':
+          description: Invalid JSON
+        '500':
+          description: Server error
+
+  /portfolio/snapshot:
+    post:
+      summary: Create Portfolio Snapshot
+      description: Triggers a calculation of the current portfolio state and saves it as a historical snapshot.
+      parameters:
+        - in: query
+          name: uid
+          schema:
+            type: string
+          required: true
+          description: User ID
+      responses:
+        '200':
+          description: Snapshot saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    description: The saved snapshot data
+        '400':
+          description: Missing UID parameter
+        '500':
+          description: Server error
+
+  /admin/seed-history:
+    post:
+      summary: Seed Dummy History
+      description: Admin endpoint to populate the database with dummy historical data for testing.
+      parameters:
+        - in: query
+          name: uid
+          schema:
+            type: string
+          description: User ID (defaults to demo-user)
+      responses:
+        '200':
+          description: Seeded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+components:
+  schemas:
+    PortfolioSummary:
+      type: object
+      properties:
+        netWorth:
+          type: number
+        netInvested:
+          type: number
+        cashOnHand:
+          type: number
+        totalLifecycleGain:
+          type: number
+        holdings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Holding'
+        assetAllocation:
+          type: array
+          items:
+            $ref: '#/components/schemas/Asset'
+
+    Holding:
+      type: object
+      properties:
+        symbol:
+          type: string
+        qty:
+          type: number
+        currentPrice:
+          type: number
+        marketValue:
+          type: number
+        lifecycleGain:
+          type: number
+        allocation:
+          type: number
+
+    Asset:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: number
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        date:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum: [BUY, SELL, DEPOSIT, WITHDRAW, DIVIDEND]
+        symbol:
+          type: string
+        qty:
+          type: number
+        price:
+          type: number
+        fee:
+          type: number
+        netAmount:
+          type: number
+        notes:
+          type: string
