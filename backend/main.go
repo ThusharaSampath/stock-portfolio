@@ -13,8 +13,9 @@ import (
 	"github.com/joho/godotenv"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
-    "sort"
-    "time"
+	"path/filepath"
+	"sort"
+	"time"
 )
 
 var client *firestore.Client
@@ -61,7 +62,22 @@ func initFirebase() {
 	}
 }
 
+func debugListFiles() {
+	log.Println("DEBUG: Listing all files in current directory and subdirectories:") // turbo-log
+	err := filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		log.Println(path)
+		return nil
+	})
+	if err != nil {
+		log.Println("Error walking the path:", err)
+	}
+}
+
 func main() {
+	debugListFiles()
 	initFirebase()
 	defer client.Close()
 
